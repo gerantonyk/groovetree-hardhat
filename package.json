@@ -1,0 +1,18 @@
+{
+  "dependencies": {
+    "hardhat": "^2.7.0"
+  },
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.3",
+    "@nomiclabs/hardhat-etherscan": "^2.1.8",
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@openzeppelin/contracts": "^4.4.0",
+    "chai": "^4.3.4",
+    "dotenv": "^10.0.0",
+    "ethereum-waffle": "^3.4.0",
+    "ethers": "^5.5.2",
+    "install": "^0.13.0",
+    "ipfs-http-client": "^54.0.2",
+    "npm": "^8.2.0"
+  }
+}
