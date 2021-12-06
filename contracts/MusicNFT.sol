@@ -39,15 +39,15 @@ contract MusicNFT is ERC721URIStorage {
         return newItemId;
     }
 
-    function createNewV(uint tokenId, string memory tokenURI,uint8 _royalty) 
+    function createNewV(uint parentId, string memory tokenURI,uint8 _royalty) 
         external 
         returns (uint256)
     {
-        require(_isApprovedOrOwner(_msgSender(), tokenId), "ERC721: CreateNewV caller is not owner nor approved");
+        require(_isApprovedOrOwner(_msgSender(), parentId), "ERC721: CreateNewV caller is not owner nor approved");
         uint newTokenId = createSong(tokenURI, _royalty);
-        transferable[tokenId] = false;
-        parent[newTokenId] = tokenId;
-        version[newTokenId] = version[tokenId]+1;
+        transferable[parentId] = false;
+        parent[newTokenId] = parentId;
+        version[newTokenId] = version[parentId]+1;
         require(version[newTokenId]<=maxVersion);
         return newTokenId;
     }
