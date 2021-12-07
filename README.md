@@ -13,4 +13,11 @@ npx hardhat node
 node scripts/sample-script.js
 npx hardhat help
 ```
-.
+
+### Environment Variables 
+Create a .env file with the following properties
+```
+RINKEBY_URL=<Get from Alchemy>
+PRIVATE_KEY=<The Private Key that will deploying the contract>
+```
+

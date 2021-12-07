@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 contract MusicNFT is ERC721URIStorage {
     using Counters for Counters.Counter;
     Counters.Counter public _tokenIds;
-    mapping (uint=>bool) public transferable;
+    mapping (uint=>bool) public isActive;
     mapping (uint=>uint) public version;
     mapping (uint=>uint) public parent;
     mapping (uint=>address) public minter;
@@ -20,7 +20,7 @@ contract MusicNFT is ERC721URIStorage {
     event TokenCreated(uint256 indexed index, address owner, string tokenU);
     constructor() ERC721("Music", "MSC") {}
 
-    function createSong(string memory tokenURI,uint8 _royalty)
+    function createSong(string memory tokenURI, uint8 _royalty)
         public
         returns (uint256)
     {
@@ -32,20 +32,20 @@ contract MusicNFT is ERC721URIStorage {
         _setTokenURI(newItemId, tokenURI);
 
         version[newItemId] = 1;
-        transferable[newItemId] = true;
-        minter[newItemId] = msg.sender;
+        isActive[newItemId] = true;
+        minter[newItemId] = msg.sender; //Should we be using _msgSender() everywhere? 
         royalty[newItemId] = _royalty;
-        emit TokenCreated(newItemId, msg.sender,tokenURI);
-        return newItemId;
+        emit TokenCreated(newItemId, msg.sender, tokenURI);
+        return newItemId; //Other smart contracts can get this 
     }
 
     function createNewV(uint parentId, string memory tokenURI,uint8 _royalty) 
         external 
         returns (uint256)
     {
-        require(_isApprovedOrOwner(_msgSender(), parentId), "ERC721: CreateNewV caller is not owner nor approved");
+        require(_isApprovedOrOwner(_msgSender(), parentId), "ERC721: CreateNewV caller is not owner nor approved"); 
         uint newTokenId = createSong(tokenURI, _royalty);
-        transferable[parentId] = false;
+        isActive[parentId] = false; 
         parent[newTokenId] = parentId;
         version[newTokenId] = version[parentId]+1;
         require(version[newTokenId]<=maxVersion);
@@ -57,7 +57,7 @@ contract MusicNFT is ERC721URIStorage {
         virtual 
         override 
     {
-        require(transferable[tokenId] == true);
+        require(isActive[tokenId] == true);
         super.transferFrom(from, to, tokenId);
     }
         
@@ -66,7 +66,7 @@ contract MusicNFT is ERC721URIStorage {
     //     virtual 
     //     override 
     // {
-    //     require(transferable[tokenId] == true);
+    //     require(isActive[tokenId] == true);
     //     super.transfer(to, tokenId);
     // }        
 }
