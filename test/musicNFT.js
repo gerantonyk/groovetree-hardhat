@@ -13,8 +13,8 @@ describe("MusicNFT", function () {
 
   describe("CreateSong", function () {
     let tokenUri0, tokenUri1; //type: string
-    let royalty0, royalty1  //type: BigInt
-    let tokenId0, tokenId1; //type: BigInt
+    let royalty0, royalty2  //type: BigInt
+    let tokenId1, tokenId2; //type: BigInt
     before(async () => {
       //Create song0
       tokenUri0 = "https://gateway.ipfs.io/ipfs/tokenURI0";
@@ -22,72 +22,74 @@ describe("MusicNFT", function () {
       const transaction0 = await musicNFT.createSong(tokenUri0, royalty0);
       const receipt0 = await transaction0.wait();
       const event0 = receipt0.events.filter(event => event.event === 'TokenCreated')[0];
-      tokenId0 = event0.args[0]; //TODO: Check if this event is emitted a second time if that adds to the args array 
+      tokenId1 = event0.args[0];
+      console.log("Token minted with ID: " + tokenId1)
 
       //Create song1
       tokenUri1 = "https://gateway.ipfs.io/ipfs/tokenURI1";
-      royalty1 = 1n;
-      const transaction1 = await musicNFT.connect(user1).createSong(tokenUri1, royalty1);
-      const receipt1 = await transaction1.wait();
-      const event1 = receipt1.events.find(event => event.event === 'TokenCreated')[0];
-      tokenId1 = event1.args[0];
+      royalty2 = 1n;
+      const transaction2 = await musicNFT.connect(user1).createSong(tokenUri1, royalty2);
+      const receipt2 = await transaction2.wait();
+      const event2 = receipt2.events.filter(event => event.event === 'TokenCreated')[0];
+      tokenId2 = event2.args[0];
+      console.log("Token minted with ID: " + tokenId2)
     });
 
-    it("the owner of tokenId0 should be owner", async function () {
-      expect(await musicNFT.ownerOf(tokenId0)).to.equal(owner.address);
+    it("the owner of tokenId1 should be owner", async function () {
+      expect(await musicNFT.ownerOf(tokenId1)).to.equal(owner.address);
     });
-    it("the tokenId0 should point to tokenUri0", async function () {
-      expect(await musicNFT.tokenURI(tokenId0)).to.equal(tokenUri0);
+    it("the tokenId1 should point to tokenUri0", async function () {
+      expect(await musicNFT.tokenURI(tokenId1)).to.equal(tokenUri0);
     });
-    it("the version of the tokenId0 should be 1", async function () {
-      expect(await musicNFT.version(tokenId0)).to.equal(1n);
+    it("the version of the tokenId1 should be 1", async function () {
+      expect(await musicNFT.version(tokenId1)).to.equal(1n);
     });
-    it("tokenId0 should be active", async function () {
-      expect(await musicNFT.isActive(tokenId0)).to.equal(true);
+    it("tokenId1 should be active", async function () {
+      expect(await musicNFT.isActive(tokenId1)).to.equal(true);
     });
-    it("the minter of tokenId0 should be set to owner", async function () {
-      expect(await musicNFT.minter(tokenId0)).to.equal(owner.address);
+    it("the minter of tokenId1 should be set to owner", async function () {
+      expect(await musicNFT.minter(tokenId1)).to.equal(owner.address);
     });
-    it("the royalty of tokenId0 should be 0", async function () {
-      expect(await musicNFT.royalty(tokenId0)).to.equal(royalty0);
+    it("the royalty of tokenId1 should be 0", async function () {
+      expect(await musicNFT.royalty(tokenId1)).to.equal(royalty0);
     });
 
     describe("Creating another song with user1", function () {
-      it("the minter of tokenId1 should be set to the user1", async function () {
-        expect(await musicNFT.minter(tokenId1)).to.equal(user1.address);
+      it("the minter of tokenId2 should be set to the user1", async function () {
+        expect(await musicNFT.minter(tokenId2)).to.equal(user1.address);
       });
-      it("the royalty of tokenId1 should be 1", async function () {
-        expect(await musicNFT.royalty(tokenId1)).to.equal(royalty1);
+      it("the royalty of tokenId2 should be 1", async function () {
+        expect(await musicNFT.royalty(tokenId2)).to.equal(royalty2);
       });
     });
   });
 
   //Note these tests have the info stored in the before. 
   describe("CreateNewV", function () {
+    const parentId = 1n;
+    let tokenId3;
     it("creating a new version with a parentId that doesn't exist should fail with clear error message", async function () {
-      const parentId = 2n;
-      expect(await musicNFT.createNewV(parentId, "testURI", 0n)).to.be.revertedWith('The following parentId does not exist: ' + parentId);
-    });
-    it("creating a new version with a parentId that is not active should fail with clear error message", async function () {
-      //First create a v2 of an active song 
-      const parentId = 0n;
-      const transaction = await musicNFT.createNewV(parentId, "testURI", 0n);
-      const receipt = await transaction.wait();
-      const event = receipt.events.filter(event => event.event === 'TokenCreated')[0];
-      tokenId0 = event.args[0]; //TODO: Check if this event is emitted a second time if that adds to the args array 
-      expect(await musicNFT.createNewV(parentId, "testURI", 0n)).to.be.revertedWith('The following parentId does not exist: ' + parentId);
+      const wrongParentId = 0n; //Token ID count starts at 1. So this id will never exist
+      await expect(musicNFT.createNewV(wrongParentId, "testURI", 0n)).to.be.reverted; //The await needs to happen outside the expect()
     });
     it("creating a new version should make the parentId not active", async function () {
-      //TODO: implement me 
+      const transaction = await musicNFT.createNewV(parentId, "testURI", 0n);
+      const receipt = await transaction.wait();
+      const event = receipt.events.filter(event => event.event === "NewVersionCreated")[0];
+      tokenId3 = event.args[0];
+      expect(await musicNFT.isActive(parentId)).to.equal(false);
     });
     it("creating a new version should have a version that is 1 greater than parentId", async function () {
-      //TODO: implement me 
+      expect(await musicNFT.version(parentId)).to.equal(1n);
+      expect(await musicNFT.version(tokenId3)).to.equal(2n);
     });
     it("after new version is made, the tokenId of the new version should be used to find the token's parent", async function () {
-      //TODO: implement me 
+      expect(await musicNFT.parent(tokenId3)).to.equal(parentId)
     });
-    it("creating a new version should add a field ", async function () {
-      //TODO: implement me 
+    it("creating a new version with a parentId that is not active should fail with clear error message", async function () {
+      //Create a song using parent1 which was already used
+      const parentId = 1n;
+      await expect(musicNFT.createNewV(parentId, "testURI", 0n)).to.be.revertedWith("parentId must be active to create a new version");
     });
   });
 });
