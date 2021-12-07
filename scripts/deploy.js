@@ -3,9 +3,7 @@ const hre = require("hardhat");
 async function main() {
   const MusicNFT = await hre.ethers.getContractFactory("MusicNFT");
   const nft = await MusicNFT.deploy();
-
   await nft.deployed();
-
   console.log("MusicNFT deployed to:", nft.address);
 }
 
