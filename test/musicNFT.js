@@ -62,8 +62,31 @@ describe("MusicNFT", function () {
     });
   });
 
+  //Note these tests have the info stored in the before. 
   describe("CreateNewV", function () {
-    it("should x,y,z", async function () {
+    it("creating a new version with a parentId that doesn't exist should fail with clear error message", async function () {
+      const parentId = 2n;
+      expect(await musicNFT.createNewV(parentId, "testURI", 0n)).to.be.revertedWith('The following parentId does not exist: ' + parentId);
+    });
+    it("creating a new version with a parentId that is not active should fail with clear error message", async function () {
+      //First create a v2 of an active song 
+      const parentId = 0n;
+      const transaction = await musicNFT.createNewV(parentId, "testURI", 0n);
+      const receipt = await transaction.wait();
+      const event = receipt.events.filter(event => event.event === 'TokenCreated')[0];
+      tokenId0 = event.args[0]; //TODO: Check if this event is emitted a second time if that adds to the args array 
+      expect(await musicNFT.createNewV(parentId, "testURI", 0n)).to.be.revertedWith('The following parentId does not exist: ' + parentId);
+    });
+    it("creating a new version should make the parentId not active", async function () {
+      //TODO: implement me 
+    });
+    it("creating a new version should have a version that is 1 greater than parentId", async function () {
+      //TODO: implement me 
+    });
+    it("after new version is made, the tokenId of the new version should be used to find the token's parent", async function () {
+      //TODO: implement me 
+    });
+    it("creating a new version should add a field ", async function () {
       //TODO: implement me 
     });
   });

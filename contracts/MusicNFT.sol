@@ -36,7 +36,7 @@ contract MusicNFT is ERC721URIStorage {
         minter[newItemId] = msg.sender; //Should we be using _msgSender() everywhere? 
         royalty[newItemId] = _royalty;
         emit TokenCreated(newItemId, msg.sender, tokenURI);
-        return newItemId; //Other smart contracts can get this 
+        return newItemId; //Note: Since we are changing state, only other smart contracts can get this return value. JS callers need to look at event info 
     }
 
     function createNewV(uint parentId, string memory tokenURI,uint8 _royalty) 
@@ -46,9 +46,10 @@ contract MusicNFT is ERC721URIStorage {
         require(_isApprovedOrOwner(_msgSender(), parentId), "ERC721: CreateNewV caller is not owner nor approved"); 
         uint newTokenId = createSong(tokenURI, _royalty);
         isActive[parentId] = false; 
-        parent[newTokenId] = parentId;
-        version[newTokenId] = version[parentId]+1;
-        require(version[newTokenId]<=maxVersion);
+        parent[newTokenId] = parentId; //TODO: Need to make sure this parentId exists..
+        version[newTokenId] = version[parentId]+1; //TODO: need to make sure that version[parentId] exists... 
+        require(version[newTokenId]<=maxVersion, "Attempted to create a version greater than the maxVersion"); //TODO: Should we remove a maxVersion? I don't see why we would want to limit the number of versions that can be made
+        //TODO: emit an event that this happened
         return newTokenId;
     }
 
