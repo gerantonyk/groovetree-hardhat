@@ -29,7 +29,7 @@ describe("MusicNFT", function () {
       royalty1 = 1n;
       const transaction1 = await musicNFT.connect(user1).createSong(tokenUri1, royalty1);
       const receipt1 = await transaction1.wait();
-      const event1 = receipt1.events.filter(event => event.event === 'TokenCreated')[0];
+      const event1 = receipt1.events.find(event => event.event === 'TokenCreated')[0];
       tokenId1 = event1.args[0];
     });
 
