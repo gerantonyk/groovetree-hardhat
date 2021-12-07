@@ -12,56 +12,57 @@ contract Market is Ownable {
         uint amount;
     }
 
-    MusicNFT private NFT;
+    address constant zeroAddress = address(0);
+    MusicNFT public NFT;
     mapping(uint=>address) public seller;
     mapping(uint=>uint) public price;
     mapping(uint=>bool) public onSale;
     mapping(uint=>offer[]) public offers;
     event TokenListed(uint256 indexed index, address owner,uint price);
 
-    constructor(address _NFTAddress) {
-        NFT = MusicNFT(_NFTAddress);
+    constructor(address NFTAddress) {
+        NFT = MusicNFT(NFTAddress);
     }
 
-    function changeNFTAddress(address _NFTAddress) external onlyOwner{
-        NFT = MusicNFT(_NFTAddress);
+    function changeNFTAddress(address NFTAddress) external onlyOwner{
+        NFT = MusicNFT(NFTAddress);
     }
 
-    function listToken(uint _tokenId, uint _price) external {
-        NFT.transferFrom(msg.sender, address(this), _tokenId);
-        seller[_tokenId] = msg.sender;
-        price[_tokenId] = _price;
-        onSale[_tokenId] = true;
-        emit TokenListed(_tokenId,msg.sender,_price);
+    function listToken(uint tokendId, uint _price) external {
+        NFT.transferFrom(msg.sender, address(this), tokendId);
+        seller[tokendId] = msg.sender;
+        price[tokendId] = _price;
+        onSale[tokendId] = true;
+        emit TokenListed(tokendId,msg.sender,_price);
      }
 
-    function cancelSale(uint _tokenId) external {
-        require(msg.sender == seller[_tokenId]);
+    function cancelSale(uint tokendId) external {
+        require(msg.sender == seller[tokendId]);
         //go tourgh the offers and return the money
-        //offers[_tokenId]
+        //offers[tokendId]
         //return the token to the original owner
 
     }
 
-    function makeOffer(uint _tokenId, uint _amount ) external {
+    function makeOffer(uint tokendId, uint _amount ) external {
         //add the offer to the array
     }
 
-    function buyNFT(uint _tokenId) external payable {
-        require(msg.value==price[_tokenId]);
-        require(onSale[_tokenId]);
-        // if (NFT.version(_tokenId)==1){
+    function buyNFT(uint tokendId) external payable {
+        require(msg.value==price[tokendId]);
+        require(onSale[tokendId]);
+        // if (NFT.version(tokendId)==1){
 
         // }
         //add the logic for the transfer trougth the royalties
         //go tourgh the offers and return the money
     }
 
-    function acceptOffer(uint _tokenId, address bidderAddress) external{
-        require(msg.sender == seller[_tokenId]);
+    function acceptOffer(uint tokendId, address bidderAddress) external{
+        require(msg.sender == seller[tokendId]);
         //transfer the token to the bidder
         //transfer eth from the bidder's offer
-        //offers[_tokenId]
+        //offers[tokendId]
         //go tourgh the offers and return the money to the rest
     }
 }
