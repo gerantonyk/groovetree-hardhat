@@ -12,23 +12,23 @@ describe("MusicNFT", function () {
   });
 
   describe("CreateSong", function () {
-    let tokenUri0, tokenUri1; //type: string
-    let royalty0, royalty2  //type: BigInt
+    let tokenUri1, tokenUri2; //type: string
+    let royalty1, royalty2  //type: BigInt
     let tokenId1, tokenId2; //type: BigInt
     before(async () => {
       //Create song0
-      tokenUri0 = "https://gateway.ipfs.io/ipfs/tokenURI0";
-      royalty0 = 0n; //Anything in JS that is passed to Solidity needs to be a BigNumber
-      const transaction0 = await musicNFT.createSong(tokenUri0, royalty0);
+      tokenUri1 = "https://gateway.ipfs.io/ipfs/tokenUri1";
+      royalty1 = 0n; //Anything in JS that is passed to Solidity needs to be a BigNumber
+      const transaction0 = await musicNFT.createSong(tokenUri1, royalty1);
       const receipt0 = await transaction0.wait();
       const event0 = receipt0.events.filter(event => event.event === 'TokenCreated')[0];
       tokenId1 = event0.args[0];
       console.log("Token minted with ID: " + tokenId1)
 
       //Create song1
-      tokenUri1 = "https://gateway.ipfs.io/ipfs/tokenURI1";
+      tokenUri2 = "https://gateway.ipfs.io/ipfs/tokenUri2";
       royalty2 = 1n;
-      const transaction2 = await musicNFT.connect(user1).createSong(tokenUri1, royalty2);
+      const transaction2 = await musicNFT.connect(user1).createSong(tokenUri2, royalty2);
       const receipt2 = await transaction2.wait();
       const event2 = receipt2.events.filter(event => event.event === 'TokenCreated')[0];
       tokenId2 = event2.args[0];
@@ -38,8 +38,8 @@ describe("MusicNFT", function () {
     it("the owner of tokenId1 should be owner", async function () {
       expect(await musicNFT.ownerOf(tokenId1)).to.equal(owner.address);
     });
-    it("the tokenId1 should point to tokenUri0", async function () {
-      expect(await musicNFT.tokenURI(tokenId1)).to.equal(tokenUri0);
+    it("the tokenId1 should point to tokenUri1", async function () {
+      expect(await musicNFT.tokenURI(tokenId1)).to.equal(tokenUri1);
     });
     it("the version of the tokenId1 should be 1", async function () {
       expect(await musicNFT.version(tokenId1)).to.equal(1n);
@@ -51,7 +51,7 @@ describe("MusicNFT", function () {
       expect(await musicNFT.minter(tokenId1)).to.equal(owner.address);
     });
     it("the royalty of tokenId1 should be 0", async function () {
-      expect(await musicNFT.royalty(tokenId1)).to.equal(royalty0);
+      expect(await musicNFT.royalty(tokenId1)).to.equal(royalty1);
     });
 
     describe("Creating another song with user1", function () {
@@ -77,6 +77,7 @@ describe("MusicNFT", function () {
       const receipt = await transaction.wait();
       const event = receipt.events.filter(event => event.event === "NewVersionCreated")[0];
       tokenId3 = event.args[0];
+      console.log("Token minted with ID: " + tokenId3)
       expect(await musicNFT.isActive(parentId)).to.equal(false);
     });
     it("creating a new version should have a version that is 1 greater than parentId", async function () {
