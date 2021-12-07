@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 //import "./MultiSig.sol";
 
 contract MusicNFT is ERC721URIStorage {
@@ -14,6 +15,9 @@ contract MusicNFT is ERC721URIStorage {
     mapping (uint=>uint) public parent;
     mapping (uint=>address) public minter;
     mapping (uint=>uint) public royalty;
+    // maxVersion along with a new variable fee should be setted on the constructor, and the smart contract
+    // should be ownable to restrict its modification
+    //topRoyalty should be calculated topRoyalty = (100 - fee)/maxVersion
     uint8 topRoyalty=20;
     uint8 maxVersion=5;
     
@@ -59,22 +63,6 @@ contract MusicNFT is ERC721URIStorage {
     {
         require(transferable[tokenId] == true);
         super.transferFrom(from, to, tokenId);
-    }
-        
-    // function transfer(address to, uint256 tokenId) 
-    //     public 
-    //     virtual 
-    //     override 
-    // {
-    //     require(transferable[tokenId] == true);
-    //     super.transfer(to, tokenId);
-    // }        
+    }     
 }
 
-
-/* flow:
-buyer makes an offer;
-owner accepts the offer and approves;
-buyer can transfer to himself the v1 o create a v2 linked to the previos token;
-if he creates a v2 v1 is burnt;
-*/
