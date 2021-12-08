@@ -20,6 +20,7 @@ contract Market is Ownable {
     mapping(uint=>uint) public price;
     mapping(uint=>bool) public onSale;
     mapping(uint=>Offer[]) public offers;
+    uint ownerFunds;
     uint8 public marketFee = 10;//%
     uint8 public maxOffers = 20;//%
 
@@ -31,7 +32,13 @@ contract Market is Ownable {
         NFT = MusicNFT(NFTAddress);
     }
 
-    function getOffers(uint tokenId) external view returns(Offer[] memory) {
+    function withdrawFunds(uint amount) external onlyOwner {
+        require(ownerFunds>=amount);
+        ownerFunds -= amount;
+        payable(msg.sender).transfer(amount);
+    }
+
+    function getOffers(uint tokenId) public view returns(Offer[] memory) {
         return offers[tokenId];
     }
 
@@ -57,6 +64,7 @@ contract Market is Ownable {
 
     function makeOffer(uint tokenId ) payable external {
         //add that if the offer is higher than the price, it should do a buyNFT intead
+        require(getOffers(tokenId).length<=maxOffers,'max offers reached');
         if (msg.value>price[tokenId]){
             buyNFT(tokenId);
             return ;
@@ -70,21 +78,12 @@ contract Market is Ownable {
     function cancelSale(uint tokenId) external {//Sin probar
         require(msg.sender == seller[tokenId], 'only the seller can cancel the sale');
         require(onSale[tokenId], 'the token is not on sale');
-        Offer[] storage tokenOffers = offers[tokenId];
-        uint len = tokenOffers.length;
-        require(len<=maxOffers,'max offers reached');
-        for(uint i=0;i<len;i++) {
-            if (tokenOffers[len-1-i].bidder>address(0)) {
-                payable(tokenOffers[len-1-i].bidder).transfer(tokenOffers[len-1-i].amount);
-                emit FundsReturned(tokenId,tokenOffers[len-1-i].bidder,tokenOffers[len-1-i].amount);
-                tokenOffers.pop();
-            }
-        }
-        NFT.transferFrom(address(this),seller[tokenId], tokenId);
+        _returnFunds(tokenId);
         seller[tokenId] = zeroAddress;
         price[tokenId] = 0;
         onSale[tokenId] = false;
         emit SaleCanceled(tokenId);
+        NFT.transferFrom(address(this),msg.sender, tokenId);
     }
 
     function withdrawOffer(uint tokenId) external {//Sin probar
@@ -92,11 +91,9 @@ contract Market is Ownable {
         bool isBidder;
         uint len = tokenOffers.length;
         for(uint i;i<len;i++) {
-            
             if(isBidder) {
                 tokenOffers[i-1] = tokenOffers[i];
             }
-
             if (tokenOffers[i].bidder==msg.sender) {
                 payable(tokenOffers[i].bidder).transfer(tokenOffers[i].amount);
                 isBidder=true;
@@ -109,14 +106,16 @@ contract Market is Ownable {
     
 
     function buyNFT(uint tokenId) public payable {//Sin probar
-        require(msg.value==price[tokenId]);
+        require(msg.value>=price[tokenId]);
         require(onSale[tokenId]);
         _payRoyalties(tokenId,  price[tokenId]);
+        _returnFunds(tokenId);
         NFT.transferFrom(address(this),msg.sender, tokenId);
     }
 
     function _payRoyalties(uint tokenId, uint _price) private  {//Sin probar
         uint priceWithoutFee = _price*(1 - marketFee/100);
+        ownerFunds += _price - priceWithoutFee;
         uint childToken = tokenId;
         uint royaltyAmount;
         uint rest = priceWithoutFee ;
@@ -138,6 +137,18 @@ contract Market is Ownable {
         seller[tokenId] = zeroAddress;
         price[tokenId] = 0;
         onSale[tokenId] = false;
+    }
+
+    function _returnFunds(uint tokenId) private {
+        Offer[] storage tokenOffers = offers[tokenId];
+        uint len = tokenOffers.length;
+        for(uint i=0;i<len;i++) {
+            if (tokenOffers[len-1-i].bidder>address(0)) {
+                payable(tokenOffers[len-1-i].bidder).transfer(tokenOffers[len-1-i].amount);
+                emit FundsReturned(tokenId,tokenOffers[len-1-i].bidder,tokenOffers[len-1-i].amount);
+                tokenOffers.pop();
+            }
+        }
     }
 
     function acceptOffer(uint tokenId, address bidderAddress) external{//Sin probar
