@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "hardhat/console.sol";
 import "./MusicNFT.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -24,9 +25,14 @@ contract Market is Ownable {
 
     event TokenListed(uint256 indexed index, address owner,uint price);
     event OfferMade (uint256 indexed index, address bidder,uint price);
-
+    event SaleCanceled(uint indexed index);
+    event FundsReturned(uint256 indexed index, address bidder,uint price);
     constructor(address NFTAddress) {
         NFT = MusicNFT(NFTAddress);
+    }
+
+    function getOffers(uint tokenId) external view returns(Offer[] memory) {
+        return offers[tokenId];
     }
 
     function changeNFTAddress(address NFTAddress) external onlyOwner{
@@ -62,32 +68,42 @@ contract Market is Ownable {
     }
 
     function cancelSale(uint tokenId) external {//Sin probar
-        require(msg.sender == seller[tokenId]);
-        require(onSale[tokenId]);
+        require(msg.sender == seller[tokenId], 'only the seller can cancel the sale');
+        require(onSale[tokenId], 'the token is not on sale');
         Offer[] storage tokenOffers = offers[tokenId];
         uint len = tokenOffers.length;
-        require(len>=maxOffers);
-        for(uint i;i<len;i++) {
-            if (tokenOffers[i].bidder>address(0)) {
-                payable(tokenOffers[i].bidder).transfer(tokenOffers[i].amount);
-                delete tokenOffers[i];
+        require(len<=maxOffers,'max offers reached');
+        for(uint i=0;i<len;i++) {
+            if (tokenOffers[len-1-i].bidder>address(0)) {
+                payable(tokenOffers[len-1-i].bidder).transfer(tokenOffers[len-1-i].amount);
+                emit FundsReturned(tokenId,tokenOffers[len-1-i].bidder,tokenOffers[len-1-i].amount);
+                tokenOffers.pop();
             }
         }
         NFT.transferFrom(address(this),seller[tokenId], tokenId);
         seller[tokenId] = zeroAddress;
         price[tokenId] = 0;
         onSale[tokenId] = false;
+        emit SaleCanceled(tokenId);
     }
 
     function withdrawOffer(uint tokenId) external {//Sin probar
         Offer[] storage tokenOffers = offers[tokenId];
+        bool isBidder;
         uint len = tokenOffers.length;
         for(uint i;i<len;i++) {
+            
+            if(isBidder) {
+                tokenOffers[i-1] = tokenOffers[i];
+            }
+
             if (tokenOffers[i].bidder==msg.sender) {
                 payable(tokenOffers[i].bidder).transfer(tokenOffers[i].amount);
-                delete tokenOffers[i];
-                return;
+                isBidder=true;
             }
+        }
+        if(isBidder) {
+            tokenOffers.pop();
         }
     }
     
