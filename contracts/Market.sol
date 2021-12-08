@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Market is Ownable {
 
-    struct offer {
+    struct Offer {
         address bidder;
         uint amount;
     }
@@ -17,8 +17,10 @@ contract Market is Ownable {
     mapping(uint=>address) public seller;
     mapping(uint=>uint) public price;
     mapping(uint=>bool) public onSale;
-    mapping(uint=>offer[]) public offers;
+    mapping(uint=>Offer[]) public offers;
+
     event TokenListed(uint256 indexed index, address owner,uint price);
+    event OfferMade (uint256 indexed index, address bidder,uint price) ;
 
     constructor(address NFTAddress) {
         NFT = MusicNFT(NFTAddress);
@@ -34,19 +36,27 @@ contract Market is Ownable {
         price[tokendId] = _price;
         onSale[tokendId] = true;
         emit TokenListed(tokendId,msg.sender,_price);
-     }
+    }
+
+    function makeOffer(uint tokendId ) payable external {
+        //add that if the offer is higher than the price, it should do a buyNFT intead
+        Offer memory offer = Offer(msg.sender,msg.value);
+        offers[tokendId].push(offer);
+        emit OfferMade(tokendId,msg.sender,msg.value);
+    }
 
     function cancelSale(uint tokendId) external {
         require(msg.sender == seller[tokendId]);
-        //go tourgh the offers and return the money
-        //offers[tokendId]
-        //return the token to the original owner
+        Offer[] storage tokenOffers = offers[tokendId];
+        uint len = tokenOffers.length;
+        for(uint i;i<len;i++) {
+           payable(tokenOffers[i].bidder).transfer(tokenOffers[i].amount);
+        }
+        NFT.transferFrom(address(this),seller[tokendId], tokendId);
 
     }
 
-    function makeOffer(uint tokendId, uint _amount ) external {
-        //add the offer to the array
-    }
+    //withdraw offer
 
     function buyNFT(uint tokendId) external payable {
         require(msg.value==price[tokendId]);

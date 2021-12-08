@@ -7,7 +7,7 @@ describe("Market", function () {
   let MusicNFT, Market;
   let tokenUri,royalty,tokenId;
   before(async () => {
-    [marketOwner,address1] = await ethers.getSigners();
+    [marketOwner,address1,address2] = await ethers.getSigners();
 
     MusicNFT = await ethers.getContractFactory("MusicNFT");
     nft = await MusicNFT.deploy();
@@ -23,7 +23,7 @@ describe("Market", function () {
     console.log("Market deployed to:", market.address);
 
     tokenUri ="https://gateway.ipfs.io/ipfs/tokenURI0";
-    royalty = '15'; //Anything in JS that is passed to Solidity needs to be a BigNumber
+    royalty = '15'; 
     const tx = await nft.createSong(tokenUri, royalty);
     const receipt = await tx.wait();
     const event = receipt.events.find(event => event.event === 'TokenCreated');
@@ -63,6 +63,26 @@ describe("Market", function () {
       assert.equal(onSale,true)
     })
   })
+
+  describe("makeOffer", function() {
+    it("Should register the first offer with 1 ether",async function() {
+      await market.connect(address1).makeOffer(tokenId,{value:parseEther('1')})
+      const offers = await market.offers(tokenId,0)
+      assert.equal(offers.amount.toString(),parseEther('1'))
+    })
+
+    it("Should register the first offer from the bidder",async function() {
+      const offers = await market.offers(tokenId,0)
+      assert.equal(offers.bidder.toString(),address1.address)
+    })
+
+    it("Should register a second offer from a different bidder",async function() {
+      await market.connect(address2).makeOffer(tokenId,{value:parseEther('1.5')})
+      const offers = await market.offers(tokenId,1)
+      assert.equal(offers.bidder.toString(),address2.address)
+    })
+  })
+
 
   describe("changeNFTAddress", function() {
     before(async () => {
