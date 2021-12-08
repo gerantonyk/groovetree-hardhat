@@ -22,6 +22,8 @@ contract MusicNFT is ERC721URIStorage {
     uint8 maxVersion=5;
     
     event TokenCreated(uint256 indexed index, address owner, string tokenU);
+    event NewVersionCreated(uint256 indexed tokenId, uint256 indexed parentId, address owner, string tokenU, uint version);
+
     constructor() ERC721("Music", "MSC") {}
 
     function createSong(string memory tokenURI, uint8 _royalty)
@@ -48,12 +50,15 @@ contract MusicNFT is ERC721URIStorage {
         returns (uint256)
     {
         require(_isApprovedOrOwner(_msgSender(), parentId), "ERC721: CreateNewV caller is not owner nor approved"); 
+        require(isActive[parentId], "parentId must be active to create a new version");
+        require(version[parentId] > 0, "the parentId's version must be greater than 0");
+
         uint newTokenId = createSong(tokenURI, _royalty);
         isActive[parentId] = false; 
-        parent[newTokenId] = parentId; //TODO: Need to make sure this parentId exists..
-        version[newTokenId] = version[parentId]+1; //TODO: need to make sure that version[parentId] exists... 
+        parent[newTokenId] = parentId;
+        version[newTokenId] = version[parentId]+1;
         require(version[newTokenId]<=maxVersion, "Attempted to create a version greater than the maxVersion"); //TODO: Should we remove a maxVersion? I don't see why we would want to limit the number of versions that can be made
-        //TODO: emit an event that this happened
+        emit NewVersionCreated(newTokenId, parentId, msg.sender, tokenURI, version[newTokenId]);
         return newTokenId;
     }
 
