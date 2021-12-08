@@ -4,7 +4,7 @@ const { ethers } = require("hardhat");
 
 describe("Market", function () {
   let marketOwner, address1, address2, nft,nft2, market;
-  let MusicNFT, Market;
+  let MusicNFT, Market,snapshot;
   let tokenUri,royalty,tokenId;
   before(async () => {
     [marketOwner,address1,address2] = await ethers.getSigners();
@@ -28,6 +28,11 @@ describe("Market", function () {
     const receipt = await tx.wait();
     const event = receipt.events.find(event => event.event === 'TokenCreated');
     tokenId = event.args[0].toNumber();
+
+    snapshot = await network.provider.request({
+      method: 'evm_snapshot',
+      params: [],
+    });
   });
 
   it("should create a new market with the nft address", async function () {
@@ -83,6 +88,13 @@ describe("Market", function () {
     })
   })
 
+  describe("makeOffer", function() {
+
+
+  })
+
+
+
   describe("changeMaxOffers", function() {
     it("shouldn't change max number of offers if the caller is not the owner", async function(){
       await expect(market.connect(address1).changeMaxOffers('24')).to.be.reverted
@@ -94,8 +106,24 @@ describe("Market", function () {
     })
   })
 
+  describe("changeMarketFee", function() {
+    it("shouldn't change market fee if the caller is not the owner", async function(){
+      await expect(market.connect(address1).changeMarketFee('11')).to.be.reverted
+    })
+
+    it("should change the market fee", async function(){
+      await market.changeMarketFee('8')
+      assert.equal(await market.marketFee(),'8')
+    })
+  })
+
   describe("changeNFTAddress", function() {
     before(async () => {
+      await network.provider.request({
+        method: 'evm_revert',
+        params: [snapshot],
+      });
+      
       nft2 = await MusicNFT.deploy();
       await nft2.deployed();
     })

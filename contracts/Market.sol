@@ -11,8 +11,8 @@ contract Market is Ownable {
         address bidder;
         uint amount;
     }
-    //delete keywork
-    //address constant zeroAddress = address(0);
+
+    address constant zeroAddress = address(0);
     
     MusicNFT public NFT;
     mapping(uint=>address) public seller;
@@ -51,14 +51,19 @@ contract Market is Ownable {
 
     function makeOffer(uint tokenId ) payable external {
         //add that if the offer is higher than the price, it should do a buyNFT intead
+        if (msg.value>price[tokenId]){
+            buyNFT(tokenId);
+            return ;
+        }
         require(msg.value>0);
         Offer memory offer = Offer(msg.sender,msg.value);
         offers[tokenId].push(offer);
         emit OfferMade(tokenId,msg.sender,msg.value);
     }
 
-    function cancelSale(uint tokenId) external {
+    function cancelSale(uint tokenId) external {//Sin probar
         require(msg.sender == seller[tokenId]);
+        require(onSale[tokenId]);
         Offer[] storage tokenOffers = offers[tokenId];
         uint len = tokenOffers.length;
         require(len>=maxOffers);
@@ -69,9 +74,12 @@ contract Market is Ownable {
             }
         }
         NFT.transferFrom(address(this),seller[tokenId], tokenId);
+        seller[tokenId] = zeroAddress;
+        price[tokenId] = 0;
+        onSale[tokenId] = false;
     }
 
-    function withdrawOffer(uint tokenId) external {
+    function withdrawOffer(uint tokenId) external {//Sin probar
         Offer[] storage tokenOffers = offers[tokenId];
         uint len = tokenOffers.length;
         for(uint i;i<len;i++) {
@@ -84,14 +92,14 @@ contract Market is Ownable {
     }
     
 
-    function buyNFT(uint tokenId) external payable {
+    function buyNFT(uint tokenId) public payable {//Sin probar
         require(msg.value==price[tokenId]);
         require(onSale[tokenId]);
         _payRoyalties(tokenId,  price[tokenId]);
         NFT.transferFrom(address(this),msg.sender, tokenId);
     }
 
-    function _payRoyalties(uint tokenId, uint _price) private  {
+    function _payRoyalties(uint tokenId, uint _price) private  {//Sin probar
         uint priceWithoutFee = _price*(1 - marketFee/100);
         uint childToken = tokenId;
         uint royaltyAmount;
@@ -111,9 +119,12 @@ contract Market is Ownable {
             payable(NFT.minter(tokenId)).transfer(royaltyAmount);
         }
         payable(seller[tokenId]).transfer(rest);
+        seller[tokenId] = zeroAddress;
+        price[tokenId] = 0;
+        onSale[tokenId] = false;
     }
 
-    function acceptOffer(uint tokenId, address bidderAddress) external{
+    function acceptOffer(uint tokenId, address bidderAddress) external{//Sin probar
         require(msg.sender == seller[tokenId]);
         require(onSale[tokenId]);
         Offer[] storage tokenOffers = offers[tokenId];
