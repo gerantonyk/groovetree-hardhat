@@ -12,14 +12,15 @@ contract Market is Ownable {
         uint amount;
     }
     //delete keywork
-    address constant zeroAddress = address(0);
-    uint public maxOffers = 20;
+    //address constant zeroAddress = address(0);
+    
     MusicNFT public NFT;
     mapping(uint=>address) public seller;
     mapping(uint=>uint) public price;
     mapping(uint=>bool) public onSale;
     mapping(uint=>Offer[]) public offers;
-    
+    uint8 public marketFee = 10;//%
+    uint8 public maxOffers = 20;//%
 
     event TokenListed(uint256 indexed index, address owner,uint price);
     event OfferMade (uint256 indexed index, address bidder,uint price);
@@ -32,55 +33,103 @@ contract Market is Ownable {
         NFT = MusicNFT(NFTAddress);
     }
 
-    function changeMaxOffers(uint _maxOffers) external onlyOwner{
+    function changeMaxOffers(uint8 _maxOffers) external onlyOwner{
         maxOffers = _maxOffers;
     }
 
-    function listToken(uint tokendId, uint _price) external {
-        NFT.transferFrom(msg.sender, address(this), tokendId);
-        seller[tokendId] = msg.sender;
-        price[tokendId] = _price;
-        onSale[tokendId] = true;
-        emit TokenListed(tokendId,msg.sender,_price);
+    function changeMarketFee(uint8 _marketFee) external onlyOwner{
+        marketFee = _marketFee;
     }
 
-    function makeOffer(uint tokendId ) payable external {
+    function listToken(uint tokenId, uint _price) external {
+        NFT.transferFrom(msg.sender, address(this), tokenId);
+        seller[tokenId] = msg.sender;
+        price[tokenId] = _price;
+        onSale[tokenId] = true;
+        emit TokenListed(tokenId,msg.sender,_price);
+    }
+
+    function makeOffer(uint tokenId ) payable external {
         //add that if the offer is higher than the price, it should do a buyNFT intead
+        require(msg.value>0);
         Offer memory offer = Offer(msg.sender,msg.value);
-        offers[tokendId].push(offer);
-        emit OfferMade(tokendId,msg.sender,msg.value);
+        offers[tokenId].push(offer);
+        emit OfferMade(tokenId,msg.sender,msg.value);
     }
 
-    function cancelSale(uint tokendId) external {
-        require(msg.sender == seller[tokendId]);
-        Offer[] storage tokenOffers = offers[tokendId];
+    function cancelSale(uint tokenId) external {
+        require(msg.sender == seller[tokenId]);
+        Offer[] storage tokenOffers = offers[tokenId];
+        uint len = tokenOffers.length;
+        require(len>=maxOffers);
+        for(uint i;i<len;i++) {
+            if (tokenOffers[i].bidder>address(0)) {
+                payable(tokenOffers[i].bidder).transfer(tokenOffers[i].amount);
+                delete tokenOffers[i];
+            }
+        }
+        NFT.transferFrom(address(this),seller[tokenId], tokenId);
+    }
+
+    function withdrawOffer(uint tokenId) external {
+        Offer[] storage tokenOffers = offers[tokenId];
         uint len = tokenOffers.length;
         for(uint i;i<len;i++) {
-           payable(tokenOffers[i].bidder).transfer(tokenOffers[i].amount);
-           delete tokenOffers[i];
+            if (tokenOffers[i].bidder==msg.sender) {
+                payable(tokenOffers[i].bidder).transfer(tokenOffers[i].amount);
+                delete tokenOffers[i];
+                return;
+            }
         }
-        NFT.transferFrom(address(this),seller[tokendId], tokendId);
+    }
+    
+
+    function buyNFT(uint tokenId) external payable {
+        require(msg.value==price[tokenId]);
+        require(onSale[tokenId]);
+        _payRoyalties(tokenId,  price[tokenId]);
+        NFT.transferFrom(address(this),msg.sender, tokenId);
     }
 
-    //withdraw offer
-    //max number of offers
-
-    function buyNFT(uint tokendId) external payable {
-        require(msg.value==price[tokendId]);
-        require(onSale[tokendId]);
-        // if (NFT.version(tokendId)==1){
-
-        // }
-        //add the logic for the transfer trougth the royalties
-        //go tourgh the offers and return the money
+    function _payRoyalties(uint tokenId, uint _price) private  {
+        uint priceWithoutFee = _price*(1 - marketFee/100);
+        uint childToken = tokenId;
+        uint royaltyAmount;
+        uint rest = priceWithoutFee ;
+        while(NFT.parent(childToken)>0) {
+            childToken = NFT.parent(childToken);
+            royaltyAmount = priceWithoutFee*NFT.royalty(childToken)/100;
+            rest = rest - royaltyAmount;
+            payable(NFT.minter(childToken)).transfer(royaltyAmount);
+        }
+        //check if the seller is equal to the minter
+        //if the seller is not the minter, the minter should take their royalties
+        //if the seller is the minter the rest is going to be transfer to them
+        if(NFT.minter(tokenId)!=seller[tokenId]) {
+            royaltyAmount = priceWithoutFee*NFT.royalty(tokenId)/100;
+            rest = rest - royaltyAmount;
+            payable(NFT.minter(tokenId)).transfer(royaltyAmount);
+        }
+        payable(seller[tokenId]).transfer(rest);
     }
 
-    function acceptOffer(uint tokendId, address bidderAddress) external{
-        require(msg.sender == seller[tokendId]);
-        //transfer the token to the bidder
-        //transfer eth from the bidder's offer
-        //offers[tokendId]
-        //go tourgh the offers and return the money to the rest
+    function acceptOffer(uint tokenId, address bidderAddress) external{
+        require(msg.sender == seller[tokenId]);
+        require(onSale[tokenId]);
+        Offer[] storage tokenOffers = offers[tokenId];
+        uint len = tokenOffers.length;
+        bool offerExist;
+        for(uint i;i<len;i++) {
+            if (tokenOffers[i].bidder==bidderAddress) {
+                offerExist = true;
+                _payRoyalties(tokenId, tokenOffers[i].amount);
+                NFT.transferFrom(address(this),bidderAddress, tokenId);
+            } else if(tokenOffers[i].bidder>address(0)) {
+                payable(tokenOffers[i].bidder).transfer(tokenOffers[i].amount);
+            }
+            delete tokenOffers[i];
+        }
+        require(offerExist); 
     }
 }
 
