@@ -11,16 +11,18 @@ contract Market is Ownable {
         address bidder;
         uint amount;
     }
-
+    //delete keywork
     address constant zeroAddress = address(0);
+    uint public maxOffers = 20;
     MusicNFT public NFT;
     mapping(uint=>address) public seller;
     mapping(uint=>uint) public price;
     mapping(uint=>bool) public onSale;
     mapping(uint=>Offer[]) public offers;
+    
 
     event TokenListed(uint256 indexed index, address owner,uint price);
-    event OfferMade (uint256 indexed index, address bidder,uint price) ;
+    event OfferMade (uint256 indexed index, address bidder,uint price);
 
     constructor(address NFTAddress) {
         NFT = MusicNFT(NFTAddress);
@@ -28,6 +30,10 @@ contract Market is Ownable {
 
     function changeNFTAddress(address NFTAddress) external onlyOwner{
         NFT = MusicNFT(NFTAddress);
+    }
+
+    function changeMaxOffers(uint _maxOffers) external onlyOwner{
+        maxOffers = _maxOffers;
     }
 
     function listToken(uint tokendId, uint _price) external {
@@ -51,12 +57,13 @@ contract Market is Ownable {
         uint len = tokenOffers.length;
         for(uint i;i<len;i++) {
            payable(tokenOffers[i].bidder).transfer(tokenOffers[i].amount);
+           delete tokenOffers[i];
         }
         NFT.transferFrom(address(this),seller[tokendId], tokendId);
-
     }
 
     //withdraw offer
+    //max number of offers
 
     function buyNFT(uint tokendId) external payable {
         require(msg.value==price[tokendId]);

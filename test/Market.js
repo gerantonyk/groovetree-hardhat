@@ -83,6 +83,16 @@ describe("Market", function () {
     })
   })
 
+  describe("changeMaxOffers", function() {
+    it("shouldn't change max number of offers if the caller is not the owner", async function(){
+      await expect(market.connect(address1).changeMaxOffers('24')).to.be.reverted
+    })
+
+    it("should change the max number of offers in the market", async function(){
+      await market.changeMaxOffers('25')
+      assert.equal(await market.maxOffers(),'25')
+    })
+  })
 
   describe("changeNFTAddress", function() {
     before(async () => {
