@@ -19,10 +19,10 @@ describe("MusicNFT", function () {
       //Create song0
       tokenUri1 = "https://gateway.ipfs.io/ipfs/tokenUri1";
       royalty1 = 0n; //Anything in JS that is passed to Solidity needs to be a BigNumber
-      const transaction0 = await musicNFT.createSong(tokenUri1, royalty1);
-      const receipt0 = await transaction0.wait();
-      const event0 = receipt0.events.filter(event => event.event === 'TokenCreated')[0];
-      tokenId1 = event0.args[0];
+      const transaction1 = await musicNFT.createSong(tokenUri1, royalty1);
+      const receipt1 = await transaction1.wait();
+      const event1 = receipt1.events.filter(event => event.event === 'TokenCreated')[0];
+      tokenId1 = event1.args[0];
       console.log("Token minted with ID: " + tokenId1)
 
       //Create song1
@@ -64,11 +64,10 @@ describe("MusicNFT", function () {
     });
   });
 
-  //Note these tests have the info stored in the before. 
   describe("CreateNewV", function () {
     const parentId = 1n;
     let tokenId3;
-    it("creating a new version with a parentId that doesn't exist should fail with clear error message", async function () {
+    it("creating a new version with a parentId that doesn't exist should revert", async function () {
       const wrongParentId = 0n; //Token ID count starts at 1. So this id will never exist
       await expect(musicNFT.createNewV(wrongParentId, "testURI", 0n)).to.be.reverted; //The await needs to happen outside the expect()
     });
