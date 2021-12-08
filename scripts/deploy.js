@@ -7,6 +7,13 @@ async function main() {
   await nft.deployed();
 
   console.log("MusicNFT deployed to:", nft.address);
+
+  const Market = await hre.ethers.getContractFactory("Market");
+  const market = await Market.deploy();
+
+  await market.deployed();
+
+  console.log("Market deployed to:", market.address);
 }
 
 main()
