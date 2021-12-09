@@ -18,11 +18,11 @@ async function  revertEVM(snapshot) {
 }
 
 describe("Market", function () {
-  let marketOwner, address1, address2,address3, nft,nft2, market;
+  let marketOwner, address1, address2,address3,address4, nft,nft2, market;
   let MusicNFT, Market,snapshot;
   let tokenUri,royalty,tokenId;
   before(async () => {
-    [marketOwner,address1,address2,address3] = await ethers.getSigners();
+    [marketOwner,address1,address2,address3,address4] = await ethers.getSigners();
 
     MusicNFT = await ethers.getContractFactory("MusicNFT");
     nft = await MusicNFT.deploy();
@@ -95,6 +95,12 @@ describe("Market", function () {
   })
 
   describe("makeOffer", function() {
+    beforeEach(async function (){
+      snapshot = await revertEVM(snapshot)
+      await nft.approve(market.address, tokenId);
+      await market.listToken(tokenId,parseEther('2'))
+    })
+    
     it("Should register the first offer with 1 ether",async function() {
       await market.connect(address1).makeOffer(tokenId,{value:parseEther('1')})
       const offers = await market.offers(tokenId,0)
@@ -102,14 +108,22 @@ describe("Market", function () {
     })
 
     it("Should register the first offer from the bidder",async function() {
+      await market.connect(address1).makeOffer(tokenId,{value:parseEther('1')})
       const offers = await market.offers(tokenId,0)
       assert.equal(offers.bidder.toString(),address1.address)
     })
 
     it("Should register a second offer from a different bidder",async function() {
+      await market.connect(address1).makeOffer(tokenId,{value:parseEther('1')})
       await market.connect(address2).makeOffer(tokenId,{value:parseEther('1.5')})
       const offers = await market.offers(tokenId,1)
       assert.equal(offers.bidder.toString(),address2.address)
+    })
+
+    it("Should buy directly when the offer is higher than the price",async function() {
+      await market.connect(address2).makeOffer(tokenId,{value:parseEther('2')})
+      const owner = await nft.ownerOf(tokenId)
+      assert.equal(owner.toString(),address2.address)
     })
   })
 
@@ -119,7 +133,7 @@ describe("Market", function () {
       await nft.approve(market.address, tokenId);
       await market.listToken(tokenId,parseEther('2'))
       await market.connect(address1).makeOffer(tokenId,{value:parseEther('1')})
-      await market.connect(address2).makeOffer(tokenId,{value:parseEther('2')})
+      await market.connect(address2).makeOffer(tokenId,{value:parseEther('1.8')})
       await market.connect(address3).makeOffer(tokenId,{value:parseEther('1.5')})
     })
     it("only the seller should be able to cancel the sale", async function() {
@@ -169,7 +183,7 @@ describe("Market", function () {
       await nft.approve(market.address, tokenId);
       await market.listToken(tokenId,parseEther('2'))
       await market.connect(address1).makeOffer(tokenId,{value:parseEther('1')})
-      await market.connect(address2).makeOffer(tokenId,{value:parseEther('2')})
+      await market.connect(address2).makeOffer(tokenId,{value:parseEther('1.5')})
     })
     
     it("shouldn't do anything if the caller is not a bidder", async function() {
@@ -185,7 +199,7 @@ describe("Market", function () {
       assert.equal(balanceAfter2.toString(),balanceBefore2.toString())
       assert.equal(balanceAfter3.toString(),balanceBefore3.toString())
     })
-    it("should return the offer to the bidder", async function(){
+    it("should return the offer to the bidders", async function(){
       let balanceBefore1 = await ethers.provider.getBalance(address1.address)
       await market.connect(address1).withdrawOffer(tokenId)
       let balanceAfter1 = await ethers.provider.getBalance(address1.address)
@@ -237,7 +251,167 @@ describe("Market", function () {
     })
   })
 
+  describe("buyNFT", function() {
+    beforeEach(async () => {
+        snapshot = await revertEVM(snapshot)
+    })
+    it("shouldn't buy the nft if amount provided is less than the price", async function(){
+      await nft.approve(market.address, tokenId);
+      await market.listToken(tokenId,parseEther('2'))
+      await expect(market.connect(address1).buyNFT(tokenId,{value:parseEther('1')})).to.be.reverted
+    })
+    it("should transfer the nft if the price higher than the price", async function(){
+      await nft.approve(market.address, tokenId);
+      await market.listToken(tokenId,parseEther('2'))
+      await market.connect(address1).buyNFT(tokenId,{value:parseEther('2')})
+      const owner = await nft.ownerOf(tokenId)
+      assert.equal(owner.toString(),address1.address)
+    })
 
+    it("should transfer the amount to the seller", async function(){
+      await nft.approve(market.address, tokenId);
+      await market.listToken(tokenId,parseEther('2'))
 
+      let balanceBefore1 = await ethers.provider.getBalance(marketOwner.address)
+      await market.connect(address1).buyNFT(tokenId,{value:parseEther('2')})
+      let balanceAfter1 = await ethers.provider.getBalance(marketOwner.address)
+      let earnings = balanceAfter1.sub(balanceBefore1)
+      let marketFee = await market.marketFee()
+      let expectedEarnings = parseEther('2').sub(parseEther('2').mul(marketFee).div(100))
+      assert.equal(earnings.toString(),expectedEarnings.toString())
+    })
 
+    it("should pay to the market the proper fee", async function(){
+      await nft.approve(market.address, tokenId);
+      await market.listToken(tokenId,parseEther('2'))
+      await market.connect(address1).buyNFT(tokenId,{value:parseEther('2')})
+      let funds = await market.ownerFunds()
+      let marketFee = await market.marketFee()
+      let expectedEarnings = parseEther('2').mul(marketFee).div(100)
+      assert.equal(funds.toString(),expectedEarnings.toString())
+    })
+
+    it("should return the offer to the bidders", async function(){
+      await nft.approve(market.address, tokenId);
+      await market.listToken(tokenId,parseEther('2'))
+      await market.connect(address3).makeOffer(tokenId,{value:parseEther('1')})
+      await market.connect(address2).makeOffer(tokenId,{value:parseEther('1.8')})
+      let balanceBefore2 = await ethers.provider.getBalance(address2.address)
+      await market.connect(address1).buyNFT(tokenId,{value:parseEther('2')})
+      let balanceAfter2 = await ethers.provider.getBalance(address2.address)
+      assert.isAbove(balanceAfter2,balanceBefore2)
+    })
+
+    it("should pay to the minter royalty fee if the seller is not the minter", async function(){
+      await nft.transferFrom(marketOwner.address, address3.address, tokenId);
+      await nft.connect(address3).approve(market.address, tokenId);
+      await market.connect(address3).listToken(tokenId,parseEther('2'))
+      
+      let balanceBefore1 = await ethers.provider.getBalance(marketOwner.address)
+      
+      await market.connect(address1).buyNFT(tokenId,{value:parseEther('2')})
+
+      let balanceAfter1 = await ethers.provider.getBalance(marketOwner.address)
+      let earnings = balanceAfter1.sub(balanceBefore1)
+      console.log(balanceAfter1.sub(balanceBefore1))
+      console.log(royalty)
+      let marketFee = await market.marketFee()
+      let rest = parseEther('2').sub(parseEther('2').mul(marketFee).div(100))
+      let expectedEarnings = rest.mul(royalty).div(100)
+      assert.equal(earnings.toString(),expectedEarnings.toString())
+    })
+
+    it("should pay to the seller the price less royalty fee less marketfee if the seller is not the minter", async function(){
+      await nft.transferFrom(marketOwner.address, address3.address, tokenId);
+      await nft.connect(address3).approve(market.address, tokenId);
+      await market.connect(address3).listToken(tokenId,parseEther('2'))
+      
+      let balanceBefore1 = await ethers.provider.getBalance(address3.address)
+      
+      await market.connect(address1).buyNFT(tokenId,{value:parseEther('2')})
+
+      let balanceAfter1 = await ethers.provider.getBalance(address3.address)
+      let earnings = balanceAfter1.sub(balanceBefore1)
+      let marketFee = await market.marketFee()
+      let rest = parseEther('2').sub(parseEther('2').mul(marketFee).div(100))
+      let expectedEarnings = rest.mul(royalty).div(100)
+      assert.equal(earnings.toString(),rest.sub(expectedEarnings))
+    })   
+    
+    it("should pay to the minter of the v1 the royalty fee", async function(){
+      await nft.approve(market.address, tokenId);
+      await market.listToken(tokenId,parseEther('2'))
+      await market.connect(address3).buyNFT(tokenId,{value:parseEther('2')})
+      const transaction = await nft.connect(address3).createNewV(tokenId, "testURI", '10');
+      const receipt = await transaction.wait();
+      const event = receipt.events.find(event => event.event === "NewVersionCreated");
+      const tokenId2 = event.args[0];
+      await nft.connect(address3).approve(market.address, tokenId2);
+      await market.connect(address3).listToken(tokenId2,parseEther('2'))
+
+      let balanceBefore1 = await ethers.provider.getBalance(address3.address)
+      
+      await market.connect(address1).buyNFT(tokenId2,{value:parseEther('2')})
+
+      let balanceAfter1 = await ethers.provider.getBalance(address3.address)
+      let earnings = balanceAfter1.sub(balanceBefore1)
+      console.log(earnings)
+
+      let royalty2 = await nft.royalty(tokenId2)
+      console.log(royalty)
+
+      let marketFee = await market.marketFee()
+      let rest = parseEther('2').sub(parseEther('2').mul(marketFee).div(100))
+      let expectedEarnings = rest.mul(royalty).div(100)
+      assert.equal(earnings.toString(),rest.sub(expectedEarnings).toString())
+    })
+   
+    it("should pay to the minter of the v1 the royalty fee", async function(){
+      await nft.approve(market.address, tokenId);
+      await market.listToken(tokenId,parseEther('2'))
+
+      await market.connect(address1).buyNFT(tokenId,{value:parseEther('2')})
+      const transaction1 = await nft.connect(address1).createNewV(tokenId, "testURI", '10');
+      const receipt1 = await transaction1.wait();
+      const event1 = receipt1.events.find(event => event.event === "NewVersionCreated");
+      const tokenId1 = event1.args[0];
+      await nft.connect(address1).approve(market.address, tokenId1);
+      await market.connect(address1).listToken(tokenId1,parseEther('2'))
+
+      await market.connect(address2).buyNFT(tokenId1,{value:parseEther('2')})
+      const transaction2 = await nft.connect(address2).createNewV(tokenId1, "testURI", '5');
+      const receipt2 = await transaction2.wait();
+      const event2 = receipt2.events.find(event => event.event === "NewVersionCreated");
+      const tokenId2 = event2.args[0];
+      await nft.connect(address2).approve(market.address, tokenId2);
+      await market.connect(address2).listToken(tokenId2,parseEther('2'))
+
+      let balanceBeforeo = await ethers.provider.getBalance(marketOwner.address)
+      let balanceBefore1 = await ethers.provider.getBalance(address1.address)
+      let balanceBefore2 = await ethers.provider.getBalance(address2.address)
+      
+      await market.connect(address3).buyNFT(tokenId2,{value:parseEther('2')})
+
+      let balanceAftero = await ethers.provider.getBalance(marketOwner.address)
+      let balanceAfter1 = await ethers.provider.getBalance(address1.address)
+      let balanceAfter2 = await ethers.provider.getBalance(address2.address)
+      
+      assert.isAbove(balanceAftero,balanceBeforeo)
+      assert.isAbove(balanceAfter1,balanceBefore1)
+      assert.isAbove(balanceAfter2,balanceBefore2)
+    })
+
+    it("tokenId should not be on sale after being sold", async function() {
+      await nft.approve(market.address, tokenId);
+      await market.listToken(tokenId,parseEther('2'))
+
+      await market.connect(address1).buyNFT(tokenId,{value:parseEther('2')})
+      const onSale = await market.onSale(tokenId)
+      assert.equal(onSale,false)
+      const seller = await market.seller(tokenId)
+      assert.equal(seller.toString(),'0x'+'0'.repeat(40))
+      const price = await market.price(tokenId)
+      assert.equal(price.toString(),'0')
+    })
+  })
 });

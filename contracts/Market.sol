@@ -20,7 +20,7 @@ contract Market is Ownable {
     mapping(uint=>uint) public price;
     mapping(uint=>bool) public onSale;
     mapping(uint=>Offer[]) public offers;
-    uint ownerFunds;
+    uint public ownerFunds;
     uint8 public marketFee = 10;//%
     uint8 public maxOffers = 20;//%
 
@@ -33,7 +33,7 @@ contract Market is Ownable {
     }
 
     function withdrawFunds(uint amount) external onlyOwner {
-        require(ownerFunds>=amount);
+        require(ownerFunds>=amount,'amount has to be lower than funds');
         ownerFunds -= amount;
         payable(msg.sender).transfer(amount);
     }
@@ -65,11 +65,11 @@ contract Market is Ownable {
     function makeOffer(uint tokenId ) payable external {
         //add that if the offer is higher than the price, it should do a buyNFT intead
         require(getOffers(tokenId).length<=maxOffers,'max offers reached');
-        if (msg.value>price[tokenId]){
+        if (msg.value>=price[tokenId]){
             buyNFT(tokenId);
             return ;
         }
-        require(msg.value>0);
+        require(msg.value>0,"offer should be more than 0");
         Offer memory offer = Offer(msg.sender,msg.value);
         offers[tokenId].push(offer);
         emit OfferMade(tokenId,msg.sender,msg.value);
@@ -106,15 +106,15 @@ contract Market is Ownable {
     
 
     function buyNFT(uint tokenId) public payable {//Sin probar
-        require(msg.value>=price[tokenId]);
-        require(onSale[tokenId]);
+        require(msg.value>=price[tokenId],'amount should be higher than price');
+        require(onSale[tokenId],'item has to be on sale');
         _payRoyalties(tokenId,  price[tokenId]);
-        _returnFunds(tokenId);
         NFT.transferFrom(address(this),msg.sender, tokenId);
+
     }
 
     function _payRoyalties(uint tokenId, uint _price) private  {//Sin probar
-        uint priceWithoutFee = _price*(1 - marketFee/100);
+        uint priceWithoutFee = _price - (_price*marketFee)/100;
         ownerFunds += _price - priceWithoutFee;
         uint childToken = tokenId;
         uint royaltyAmount;
@@ -134,6 +134,7 @@ contract Market is Ownable {
             payable(NFT.minter(tokenId)).transfer(royaltyAmount);
         }
         payable(seller[tokenId]).transfer(rest);
+        _returnFunds(tokenId);
         seller[tokenId] = zeroAddress;
         price[tokenId] = 0;
         onSale[tokenId] = false;
@@ -152,22 +153,23 @@ contract Market is Ownable {
     }
 
     function acceptOffer(uint tokenId, address bidderAddress) external{//Sin probar
-        require(msg.sender == seller[tokenId]);
-        require(onSale[tokenId]);
+        require(msg.sender == seller[tokenId],'only the seller can accept an offer');
+        require(onSale[tokenId],'item has to be on sale');
         Offer[] storage tokenOffers = offers[tokenId];
         uint len = tokenOffers.length;
         bool offerExist;
         for(uint i;i<len;i++) {
-            if (tokenOffers[i].bidder==bidderAddress) {
+            if (tokenOffers[len-1-i].bidder==bidderAddress) {
                 offerExist = true;
-                _payRoyalties(tokenId, tokenOffers[i].amount);
+                _payRoyalties(tokenId, tokenOffers[len-1-i].amount);
                 NFT.transferFrom(address(this),bidderAddress, tokenId);
-            } else if(tokenOffers[i].bidder>address(0)) {
-                payable(tokenOffers[i].bidder).transfer(tokenOffers[i].amount);
+            } else if(tokenOffers[len-1-i].bidder>address(0)) {
+                payable(tokenOffers[len-1-i].bidder).transfer(tokenOffers[len-1-i].amount);
+                emit FundsReturned(tokenId,tokenOffers[len-1-i].bidder,tokenOffers[len-1-i].amount);
             }
-            delete tokenOffers[i];
+            tokenOffers.pop();
         }
-        require(offerExist); 
+        require(offerExist,'the offer should be valid'); 
     }
 }
 
