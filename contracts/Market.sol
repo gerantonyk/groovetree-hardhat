@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
 import "./MusicNFT.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -126,16 +125,13 @@ contract Market is Ownable {
 
         uint priceWithoutFee = _price - (_price*marketFee)/100;
         ownerFunds += _price - priceWithoutFee;
-        console.log(ownerFunds);
+
         uint childToken = tokenId;
         uint royaltyAmount;
         uint rest = priceWithoutFee ;
-        console.log('price',_price);
-        console.log('pricewithoutfee',priceWithoutFee);
         while(NFT.parent(childToken)>0) {
             childToken = NFT.parent(childToken);
             royaltyAmount = priceWithoutFee*NFT.royalty(childToken)/100;
-            console.log('royalty',royaltyAmount);
             rest = rest - royaltyAmount;
             payable(NFT.minter(childToken)).transfer(royaltyAmount);
         }
