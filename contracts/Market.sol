@@ -63,8 +63,17 @@ contract Market is Ownable {
     }
 
     function makeOffer(uint tokenId ) payable external {
+        //we should validate that there is only one offer
         //add that if the offer is higher than the price, it should do a buyNFT intead
-        require(getOffers(tokenId).length<=maxOffers,'max offers reached');
+        bool bidderExist;
+        for(uint i=0; i<offers[tokenId].length;i++){
+            if (offers[tokenId][i].bidder==msg.sender){
+                bidderExist=true;
+                break;
+            }
+        }
+        require(bidderExist==false,'bidder alredy exist, withdraw offer first');
+        require(getOffers(tokenId).length<maxOffers,'max offers reached');
         if (msg.value>=price[tokenId]){
             buyNFT(tokenId);
             return ;
@@ -114,14 +123,19 @@ contract Market is Ownable {
     }
 
     function _payRoyalties(uint tokenId, uint _price) private  {//Sin probar
+
         uint priceWithoutFee = _price - (_price*marketFee)/100;
         ownerFunds += _price - priceWithoutFee;
+        console.log(ownerFunds);
         uint childToken = tokenId;
         uint royaltyAmount;
         uint rest = priceWithoutFee ;
+        console.log('price',_price);
+        console.log('pricewithoutfee',priceWithoutFee);
         while(NFT.parent(childToken)>0) {
             childToken = NFT.parent(childToken);
             royaltyAmount = priceWithoutFee*NFT.royalty(childToken)/100;
+            console.log('royalty',royaltyAmount);
             rest = rest - royaltyAmount;
             payable(NFT.minter(childToken)).transfer(royaltyAmount);
         }
@@ -147,8 +161,8 @@ contract Market is Ownable {
             if (tokenOffers[len-1-i].bidder>address(0)) {
                 payable(tokenOffers[len-1-i].bidder).transfer(tokenOffers[len-1-i].amount);
                 emit FundsReturned(tokenId,tokenOffers[len-1-i].bidder,tokenOffers[len-1-i].amount);
-                tokenOffers.pop();
             }
+            tokenOffers.pop();
         }
     }
 
@@ -158,18 +172,21 @@ contract Market is Ownable {
         Offer[] storage tokenOffers = offers[tokenId];
         uint len = tokenOffers.length;
         bool offerExist;
+        uint amount;
         for(uint i;i<len;i++) {
-            if (tokenOffers[len-1-i].bidder==bidderAddress) {
+            if (tokenOffers[i].bidder==bidderAddress) {
                 offerExist = true;
-                _payRoyalties(tokenId, tokenOffers[len-1-i].amount);
-                NFT.transferFrom(address(this),bidderAddress, tokenId);
-            } else if(tokenOffers[len-1-i].bidder>address(0)) {
-                payable(tokenOffers[len-1-i].bidder).transfer(tokenOffers[len-1-i].amount);
-                emit FundsReturned(tokenId,tokenOffers[len-1-i].bidder,tokenOffers[len-1-i].amount);
+                amount = tokenOffers[i].amount;
+                tokenOffers[i].amount=0;
+                tokenOffers[i].bidder=zeroAddress;
+                break;
             }
-            tokenOffers.pop();
         }
-        require(offerExist,'the offer should be valid'); 
+        if(offerExist) {
+            _payRoyalties(tokenId, amount);
+            NFT.transferFrom(address(this),bidderAddress, tokenId);
+        }
+            
     }
 }
 
