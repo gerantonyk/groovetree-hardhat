@@ -1,5 +1,9 @@
 const hre = require("hardhat");
 
+/**
+ * Run: 
+ * npx hardhat run --network <your-network> scripts/deploy.js
+ */
 async function main() {
   const MusicNFT = await hre.ethers.getContractFactory("MusicNFT");
   const nft = await MusicNFT.deploy();
@@ -15,3 +19,4 @@ main()
     console.error(error);
     process.exit(1);
   });
+  
